@@ -8,3 +8,5 @@ Player kills a wave of zombies to earn points. Automatic wave spawning has not b
 
 Sgt. Morris is used as a shop for players to upgrade weapons, as well as buy perks and equipment. Shop GUI is not fully implemented. The wristcomm GUI is used instead for demonstration purposes. Press H to activate.
 ![image](https://user-images.githubusercontent.com/90282143/157355336-c2af4e04-5b6e-4bff-a22d-e0cdf1c38fd9.png)
+
+Local files and game shortcut are available for download. Copy and paste the mod folder into the same location as the default Quake.exe location to load up the mod (which is still a WIP)
