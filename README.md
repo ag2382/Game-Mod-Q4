@@ -6,5 +6,5 @@ This mod gives Quake 4 a zombies-esque game mode. Think of Call of Duty Black Op
 Player kills a wave of zombies to earn points. Automatic wave spawning has not been fully implemented. For now, players can press G on the keyboard to spawn as many zombies as they want. Armor HUD has been modified to reflect user points.
 ![image](https://user-images.githubusercontent.com/90282143/157355199-221c34be-cbdd-4061-a15f-87d1f19092e2.png)
 
-Sgt. Morris is used as a shop for players to upgrade weapons, as well as buy perks and equipment. Shop GUI is not fully implemented. The wristcomm GUI is used instead for demonstration purposes.
+Sgt. Morris is used as a shop for players to upgrade weapons, as well as buy perks and equipment. Shop GUI is not fully implemented. The wristcomm GUI is used instead for demonstration purposes. Press H to activate.
 ![image](https://user-images.githubusercontent.com/90282143/157355336-c2af4e04-5b6e-4bff-a22d-e0cdf1c38fd9.png)
