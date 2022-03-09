@@ -8,6 +8,3 @@ Player kills a wave of zombies to earn points. Automatic wave spawning has not b
 
 Sgt. Morris is used as a shop for players to upgrade weapons, as well as buy perks and equipment. Shop GUI is not fully implemented. The wristcomm GUI is used instead for demonstration purposes.
 ![image](https://user-images.githubusercontent.com/90282143/157355336-c2af4e04-5b6e-4bff-a22d-e0cdf1c38fd9.png)
-
-## Installation Instructions
-Take the folder "q4zombies" and copy it into the folder containing Quake4.exe. Then, create a shortcut to automatically launch your mod. Do so by right-clicking Quake4.exe and go to Properties. Go to the end of the target line and enter the following: "+disconnect +set fs_game q4zombies". You can also put "+set com_allowConsole 1" in the target line to skip boot-up cutscenes and go straight to the main menu (if you want).
