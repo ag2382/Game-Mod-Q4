@@ -206,6 +206,7 @@ void idInventory::Clear( void ) {
 	armor				= 0;
 	maxarmor			= 0;
 	secretAreasDiscovered = 0;
+	points				= 0;
 
 	memset( ammo, 0, sizeof( ammo ) );
 
@@ -910,14 +911,17 @@ bool idInventory::Give( idPlayer *owner, const idDict &spawnArgs, const char *st
 	} else if( !idStr::Icmp( statname, "ammoregen" ) && !checkOnly ) {
 		GivePowerUp( owner, POWERUP_AMMOREGEN, -1 );
 	} else if ( !idStr::Icmp( statname, "weapon" ) ) {
+		// variable used to pick up weapon
 		bool tookWeapon = false;
  		for( pos = value; pos != NULL; pos = end ) {
 			end = strchr( pos, ',' );
 			if ( end ) {
 				len = end - pos;
 				end++;
+				gameLocal.Printf("ran\n");
 			} else {
 				len = strlen( pos );
+				gameLocal.Printf("rindou\n");
 			}
 
 			idStr weaponName( pos, 0, len );
@@ -927,14 +931,19 @@ bool idInventory::Give( idPlayer *owner, const idDict &spawnArgs, const char *st
 // RAVEN BEGIN
 // mekberg: check for not found weapons
 			if ( i == -1 ) {
-				gameLocal.Warning( "Unknown weapon '%s'", weaponName.c_str() );
+				gameLocal.Warning( "Unknown weapon '%s'\n ", weaponName.c_str() );
 				return false;
 			}
+			else {
+				// limit player to 3 weapon slots?
+				gameLocal.Printf(" Weapon name: '%s'\n ", weaponName.c_str());
+				gameLocal.Printf(" Slot ID: '%i'\n ", i);
+			}
 // RAVEN END
-
- 			if ( gameLocal.isMultiplayer 
-				&& ( weapons & ( 1 << i ) ) ) {
+// check if you have a weapon already
+ 			if ( gameLocal.isMultiplayer && ( weapons & ( 1 << i ) ) ) {
 				//already have this weapon
+				gameLocal.Printf("You already have this weapon\n");
 				if ( !dropped ) {
 					//a placed weapon item
 					if ( gameLocal.IsWeaponsStayOn() ) {
@@ -946,6 +955,7 @@ bool idInventory::Give( idPlayer *owner, const idDict &spawnArgs, const char *st
  				// not for singleplayer.. there is only one case in the game where you can get a no ammo
  				// weapon when you might already have it, in that case it is more consistent to pick it up
 				// cache the media for this weapon
+				gameLocal.Printf("Ammo reloaded\n");
 				const idDict* dict;
 				dict = &owner->GetWeaponDef ( i )->dict;
 				if ( dict && !dict->GetInt( "ammoRequired" ) ) {
@@ -971,6 +981,8 @@ bool idInventory::Give( idPlayer *owner, const idDict &spawnArgs, const char *st
 					if( !checkOnly ) {
  						weapons |= ( 1 << i );
 					}
+					gameLocal.Printf("picked up a new weapon\n");
+					// make it so that this statement occurs when user presses specific key bind
  					tookWeapon = true;
  				}
   			}
@@ -990,7 +1002,7 @@ bool idInventory::Give( idPlayer *owner, const idDict &spawnArgs, const char *st
 
 /*
 ===============
-idInventoy::Drop
+idInventory::Drop
 ===============
 */
 void idInventory::Drop( const idDict &spawnArgs, const char *weapon_classname, int weapon_index ) {
@@ -1106,9 +1118,12 @@ idPlayer::idPlayer() {
 
 	hud						= NULL;
 	mphud					= NULL;
+	buyHud					= NULL;
 	objectiveSystem			= NULL;
 	objectiveSystemOpen		= false;
 	showNewObjectives		= false;
+	readyToBuy				= false;
+	buyHudOpen				= false;
 #ifdef _XENON
 	g_ObjectiveSystemOpen	= false;
 #endif
@@ -1367,6 +1382,7 @@ bool idPlayer::GetShowHud( void )	{
 idPlayer::SetWeapon
 ==============
 */
+// gives weapon identity in player.def file??
 void idPlayer::SetWeapon( int weaponIndex ) {
 	if ( weapon && weaponIndex == currentWeapon ) {
 		return;
@@ -1484,6 +1500,10 @@ void idPlayer::SetupWeaponEntity( void ) {
 
  	for( w = 0; w < MAX_WEAPONS; w++ ) {
  		weap = spawnArgs.GetString( va( "def_weapon%d", w ) );
+		// def_weapon0 = blaster
+		// def_weapon1 = machine gun
+		// def_weapon2 = shotgun
+		// etc.
  		if ( weap && *weap ) {
  			rvWeapon::CacheWeapon( weap );
  		}
@@ -2120,6 +2140,7 @@ void idPlayer::Save( idSaveGame *savefile ) const {
 
  	savefile->WriteUserInterface( hud, false );
 //	savefile->WriteUserInterface( mphud, false );			// Don't save MP stuff
+//	savefile->WriteUserInterface( buyHud, false );			// Don't save buyMenu stuff
  	savefile->WriteUserInterface( objectiveSystem, false );
 	savefile->WriteUserInterface( cinematicHud, false );
 	savefile->WriteBool( objectiveSystemOpen );
@@ -2387,6 +2408,7 @@ void idPlayer::Restore( idRestoreGame *savefile ) {
 
  	savefile->ReadUserInterface( hud, &spawnArgs );	
 	assert( !mphud );									// Don't save MP stuff
+	assert (!buyHud);									// Don't save buyMenu stuff
 	savefile->ReadUserInterface( objectiveSystem, &spawnArgs );
 	savefile->ReadUserInterface( cinematicHud, &spawnArgs );
 	savefile->ReadBool( objectiveSystemOpen );
@@ -3391,22 +3413,36 @@ void idPlayer::UpdateHudStats( idUserInterface *_hud ) {
 	int temp;
 	
 	assert ( _hud );
-
+	// health
+	 // when player spawns, hud values default to -1
 	temp = _hud->State().GetInt ( "player_health", "-1" );
 	if ( temp != health ) {		
+		gameLocal.Printf("current health: %i\n", temp);
 		_hud->SetStateInt   ( "player_healthDelta", temp == -1 ? 0 : (temp - health) );
 		_hud->SetStateInt	( "player_health", health < -100 ? -100 : health );
 		_hud->SetStateFloat	( "player_healthpct", idMath::ClampFloat ( 0.0f, 1.0f, (float)health / (float)inventory.maxHealth ) );
 		_hud->HandleNamedEvent ( "updateHealth" );
+		gameLocal.Printf("health updated\n");
 	}
-		
-	temp = _hud->State().GetInt ( "player_armor", "-1" );
+	
+	// points
+	temp = _hud->State().GetInt("player_armor", "-1");
+	if (temp != inventory.points) {
+		_hud->SetStateInt("player_armorDelta", temp == -1 ? 0 : (temp - inventory.points));
+		_hud->SetStateInt("player_armor", inventory.points);
+		_hud->SetStateFloat("player_armorpct", idMath::ClampFloat(0.0f, 1.0f, (float)inventory.armor / (float)inventory.maxarmor));
+		_hud->HandleNamedEvent("updateArmor");
+		gameLocal.Printf("points updated\n");
+	}
+
+	/*temp = _hud->State().GetInt ( "player_armor", "-1" );
 	if ( temp != inventory.armor ) {
 		_hud->SetStateInt ( "player_armorDelta", temp == -1 ? 0 : (temp - inventory.armor) );
 		_hud->SetStateInt ( "player_armor", inventory.armor );
 		_hud->SetStateFloat	( "player_armorpct", idMath::ClampFloat ( 0.0f, 1.0f, (float)inventory.armor / (float)inventory.maxarmor ) );
 		_hud->HandleNamedEvent ( "updateArmor" );
-	}
+		gameLocal.Printf("armor updated\n");
+	}*/
 	
 	// Boss bar
 	if ( _hud->State().GetInt ( "boss_health", "-1" ) != (bossEnemy ? bossEnemy->health : -1) ) {
@@ -5190,6 +5226,7 @@ void idPlayer::UpdateObjectiveInfo( void ) {
 // RAVEN END
 
 	objectiveSystem->StateChanged( gameLocal.time );
+	//gameLocal.Printf("update\n");
 }
 
 /*
@@ -5197,7 +5234,7 @@ void idPlayer::UpdateObjectiveInfo( void ) {
 idPlayer::GiveObjective
 ===============
 */
-void idPlayer::GiveObjective( const char *title, const char *text, const char *screenshot ) {
+void idPlayer::GiveObjective( const char *title, const char *text, const char *screenshot ) { // shows on top left at the beginning of the level
 	idObjectiveInfo info;
 // RAVEN BEGIN
 	info.title = common->GetLocalizedString( title );
@@ -7241,42 +7278,45 @@ void idPlayer::UpdateFocus( void ) {
 					}
 				}
 			}
-			hud->SetStateInt( "GUIIsNotUsingDPad", (usepad) ? 0 : 1 );
-			hud->SetStateInt( "hideInteractive", 0 );
+			hud->SetStateInt("GUIIsNotUsingDPad", (usepad) ? 0 : 1);
+			hud->SetStateInt("hideInteractive", 0);
 #endif
 
-			SetFocus ( FOCUS_GUI, FOCUS_GUI_TIME, ent, ui );
-			break;
+			SetFocus(FOCUS_GUI, FOCUS_GUI_TIME, ent, ui);
+break;
 		}
 	}
 
 #ifdef _XENON
-	if ( !gameLocal.isMultiplayer || (gameLocal.isMultiplayer && entityNumber == gameLocal.localClientNum) ) {
-		
-		if ( !weapon || !weapon->AllowAutoAim() ) {
-			if ( cursor ) {
+	if (!gameLocal.isMultiplayer || (gameLocal.isMultiplayer && entityNumber == gameLocal.localClientNum)) {
+
+		if (!weapon || !weapon->AllowAutoAim()) {
+			if (cursor) {
 				cursor->SetStateInt("enemyFocus", 0);
 			}
-			usercmdGen->SetSlowJoystick( zoomed ? pm_zoomedSlow.GetInteger() : 100 );
-		} else {		
-		
-			if ( bestEnemy && doAimAssist ) {
-				if ( cursor ) {
+			usercmdGen->SetSlowJoystick(zoomed ? pm_zoomedSlow.GetInteger() : 100);
+		}
+		else {
+
+			if (bestEnemy && doAimAssist) {
+				if (cursor) {
 					cursor->SetStateInt("enemyFocus", 1);
 				}
 				trace_t trace;
 				idVec3 altEnd = bestEnemy->GetPhysics()->GetOrigin();
-				altEnd[2]+=35.0f; // origin is always below the monster's feet for whatever reason, so aim at this
-				gameLocal.TracePoint( this, trace, start, altEnd, MASK_SHOT_BOUNDINGBOX, this );
-				if ( ( trace.fraction < 1.0f ) && ( trace.c.entityNum == bestEnemy->entityNumber ) ) {
+				altEnd[2] += 35.0f; // origin is always below the monster's feet for whatever reason, so aim at this
+				gameLocal.TracePoint(this, trace, start, altEnd, MASK_SHOT_BOUNDINGBOX, this);
+				if ((trace.fraction < 1.0f) && (trace.c.entityNum == bestEnemy->entityNumber)) {
 					int slow = pm_AimAssistSlow.GetInteger();
-					usercmdGen->SetSlowJoystick( zoomed ? pm_zoomedSlow.GetInteger() : slow );
-				} else {
-					usercmdGen->SetSlowJoystick( zoomed ? pm_zoomedSlow.GetInteger() : 100 );
+					usercmdGen->SetSlowJoystick(zoomed ? pm_zoomedSlow.GetInteger() : slow);
 				}
-			} else {
-				usercmdGen->SetSlowJoystick( zoomed ? pm_zoomedSlow.GetInteger() : 100 );
-				if ( cursor ) {
+				else {
+					usercmdGen->SetSlowJoystick(zoomed ? pm_zoomedSlow.GetInteger() : 100);
+				}
+			}
+			else {
+				usercmdGen->SetSlowJoystick(zoomed ? pm_zoomedSlow.GetInteger() : 100);
+				if (cursor) {
 					cursor->SetStateInt("enemyFocus", 0);
 				}
 			}
@@ -7284,34 +7324,35 @@ void idPlayer::UpdateFocus( void ) {
 	}
 #endif
 
-	if ( !gameLocal.isMultiplayer || (gameLocal.isMultiplayer && entityNumber == gameLocal.localClientNum) ) {
-		if ( wasTargetFriendly && !targetFriendly && focusType == FOCUS_NONE ) {
-			if ( cursor ) {
-				cursor->HandleNamedEvent ( WeaponIsEnabled() ? "showCrossCombat" : "crossHide" );
+	if (!gameLocal.isMultiplayer || (gameLocal.isMultiplayer && entityNumber == gameLocal.localClientNum)) {
+		if (wasTargetFriendly && !targetFriendly && focusType == FOCUS_NONE) {
+			if (cursor) {
+				cursor->HandleNamedEvent(WeaponIsEnabled() ? "showCrossCombat" : "crossHide");
 			}
 		}
 	}
 
 	// Update the focus brackets within the hud
-	if ( focusBrackets && hud ) {
-		if (focusType == FOCUS_BRACKETS || focusType == FOCUS_GUI ) {
-			if ( !oldBrackets || focusBracketsTime ) {
-				hud->HandleNamedEvent ( "showBrackets" );			
+	if (focusBrackets && hud) {
+		if (focusType == FOCUS_BRACKETS || focusType == FOCUS_GUI) {
+			if (!oldBrackets || focusBracketsTime) {
+				hud->HandleNamedEvent("showBrackets");
 			}
 			focusBracketsTime = 0;
-		} else {
-			if ( focusBracketsTime == 0 ) {
-				hud->HandleNamedEvent ( "fadeBrackets" );
+		}
+		else {
+			if (focusBracketsTime == 0) {
+				hud->HandleNamedEvent("fadeBrackets");
 				focusBracketsTime = gameLocal.time + 2000;
 			}
 		}
-		focusBrackets->SetStateBool ( "2d_calc", true );
-	}	
+		focusBrackets->SetStateBool("2d_calc", true);
+	}
 
- 	if ( cursor && ( oldTalkCursor != talkCursor ) ) {
- 		cursor->SetStateInt( "talkcursor", talkCursor );
- 	}
- 
+	if (cursor && (oldTalkCursor != talkCursor)) {
+		cursor->SetStateInt("talkcursor", talkCursor);
+	}
+
 }
 
 /*
@@ -7319,27 +7360,53 @@ void idPlayer::UpdateFocus( void ) {
 idPlayer::ClearFocus
 ================
 */
-void idPlayer::ClearFocus ( void ) {
-	SetFocus ( FOCUS_NONE, 0, NULL, NULL );
+void idPlayer::ClearFocus(void) {
+	SetFocus(FOCUS_NONE, 0, NULL, NULL);
+	gameLocal.Printf("focus is gone\n");
+	readyToBuy = false;
+	buyHudOpen = false;
+	objectiveSystem->Activate(false, gameLocal.time);
+	objectiveSystem->HandleNamedEvent("wristcommHide"); // triggers GUI to hide
 }
 
-void idPlayer::UpdateFocusCharacter( idEntity* newEnt ) {
-	if ( !cursor ) {
+void idPlayer::UpdateFocusCharacter(idEntity* newEnt) {
+	if (!cursor) {
 		return;
 	}
+	gameLocal.Printf("set up shopping interaction here\n");
 	// Handle character interaction
-	cursor->SetStateString( "npc", common->GetLocalizedString(newEnt->spawnArgs.GetString( "npc_name", "Joe" )) );
-	cursor->SetStateString( "npcdesc", common->GetLocalizedString(newEnt->spawnArgs.GetString( "npc_description", "" )) );
-	if ( newEnt->IsType( rvAIMedic::GetClassType() ) ) {
-		if ( ((rvAIMedic*)newEnt)->isTech ) {
-			cursor->SetStateInt( "npc_medictech", 2 );
-		} else {
-			cursor->SetStateInt( "npc_medictech", 1 );
+	cursor->SetStateString("npc", common->GetLocalizedString(newEnt->spawnArgs.GetString("npc_name", "Joe")));
+	cursor->SetStateString("npcdesc", common->GetLocalizedString(newEnt->spawnArgs.GetString("npc_description", "")));
+	if (newEnt->IsType(rvAIMedic::GetClassType())) {
+		if (((rvAIMedic*)newEnt)->isTech) {
+			cursor->SetStateInt("npc_medictech", 2);
 		}
-	} else {
-		cursor->SetStateInt( "npc_medictech", 0 );
+		else {
+			cursor->SetStateInt("npc_medictech", 1);
+		}
+	}
+	else {
+		cursor->SetStateInt("npc_medictech", 0);
+		// activate shop on button press (for Sgt. Morris)
+		readyToBuy = true;
+		gameLocal.Printf("Ready to buy! Press H to open shop menu.\n");
+		// check if button has been pressed
 	}
 }
+
+// function used to generate shop
+void idPlayer::shopGen() {
+	idPlayer* player = gameLocal.GetLocalPlayer();
+	//gameLocal.Printf("command to bring up the buy menu\n");
+	// if local player is found
+	if (player && !gameLocal.isMultiplayer) {
+		// open buy menu
+		gameLocal.Printf("loading shop\n");
+		player->getBuyMenu();
+	}
+	// when you exit the shop, set readyToBuy to false
+}
+
 /*
 ================
 idPlayer::SetFocus
@@ -7916,7 +7983,7 @@ void idPlayer::UpdateGravity( void ) {
 idPlayer::ToggleObjectives
 ==============
 */
-void idPlayer::ToggleObjectives ( void ) {
+void idPlayer::ToggleObjectives ( void ) { // functionality of TAB button
 // RAVEN BEGIN
 // mekberg: allow disabling of objectives.
 	if ( objectiveSystem == NULL || !objectivesEnabled ) {
@@ -7925,6 +7992,7 @@ void idPlayer::ToggleObjectives ( void ) {
 // RAVEN END
 
 	if ( !objectiveSystemOpen ) {
+		//gameLocal.Printf("objective open val: '%i'", objectiveSystemOpen);
 		int j, c = inventory.items.Num();
 		objectiveSystem->SetStateInt( "inv_count", c );
 		for ( j = 0; j < c; j++ ) {
@@ -7956,15 +8024,32 @@ void idPlayer::ToggleObjectives ( void ) {
 			}
 			objectiveSystem->SetStateInt( weapnum, weapstate );
 		}
-
+		//gameLocal.Printf("key is being held down\n");
 		UpdateObjectiveInfo();
 		objectiveSystem->Activate( true, gameLocal.time );
-		objectiveSystem->HandleNamedEvent( "wristcommShow" );
+		objectiveSystem->HandleNamedEvent( "wristcommShow" ); // triggers GUI to show
+
 	} else {
+		//gameLocal.Printf("key has been let go\n");
 		objectiveSystem->Activate( false, gameLocal.time );
-		objectiveSystem->HandleNamedEvent( "wristcommHide" );
+		objectiveSystem->HandleNamedEvent( "wristcommHide" ); // triggers GUI to hide
 	}
 	objectiveSystemOpen ^= 1;
+}
+
+void idPlayer::ToggleShop(void) {
+	if (buyHud == NULL) {
+		return;
+	}
+
+	if (!buyHudOpen) {
+		gameLocal.Printf("H is being held\n");
+		buyHud->Activate(true, gameLocal.time);
+	} else {
+		gameLocal.Printf("H has been let go\n");
+		buyHud->Activate(false, gameLocal.time);
+	}
+	buyHudOpen ^= 1;
 }
 
 /*
@@ -8135,7 +8220,33 @@ bool idPlayer::ExitVehicle ( bool force ) {
 
 
 // RITUAL BEGIN
-// squirrel: Mode-agnostic buymenus
+// squirrel: Mode-agnostic buyHuds
+
+// more-so proof of concept; NOT FULLY IMPLEMENTED YET ~ wristcomm is used as a basis for shop functionality.
+void idPlayer::getBuyMenu(void) {
+	/*if (buyHud == NULL) {
+		return;
+	}*/
+	buyHud = uiManager->FindGui("guis/buymenu.gui", true, false, true);
+
+	if (!buyHudOpen) {
+		gameLocal.Printf("button pressed. shop open\n");
+		buyHud->Activate(true, gameLocal.time);
+		/*buyHud->HandleNamedEvent("update_buymenu");*/
+		objectiveSystem->Activate(true, gameLocal.time);
+		objectiveSystem->HandleNamedEvent("wristcommShow"); // triggers GUI to hide
+		//buyHud->Activate(true, gameLocal.time);
+	}
+	else {
+		gameLocal.Printf("button pressed again. shop closed\n");
+		objectiveSystem->Activate(false, gameLocal.time);
+		objectiveSystem->HandleNamedEvent("wristcommHide"); // triggers GUI to hide
+		//buyHud->Activate(false, gameLocal.time);
+	}
+	buyHudOpen ^= 1;
+	gameLocal.Printf("shop hud value: '%i'\n", buyHudOpen);
+	//gameLocal.Printf("in openLocalBuyMenu (single player btw)\n");
+}
 
 /*
 ==============
@@ -8407,8 +8518,10 @@ bool idPlayer::AttemptToBuyItem( const char* itemName )
 }
 
 bool idPlayer::CanBuy( void ) {
+	// check if buying for the player is allowed rn
 	bool ret = gameLocal.mpGame.IsBuyingAllowedRightNow();
 	if ( !ret ) {
+		gameLocal.Printf("cannot buy :( \n");
 		return false;
 	}
 	return !spectating;
@@ -8494,6 +8607,30 @@ void idPlayer::PerformImpulse( int impulse ) {
 			}
 			break;
 		}
+		case IMPULSE_16: {
+			gameLocal.Printf("button press successful\n");
+			if (readyToBuy) {
+				gameLocal.Printf("showing hud for shop\n");
+				if (weapon) {
+					weapon->Hide();
+					shopGen();
+				}
+				/*if (!buyHudOpen) {
+					gameLocal.Printf("shop hud not open\n");
+				}
+				else {
+					gameLocal.Printf("shop hud open\n");
+				}*/
+				//if (weapon) {
+				//	weapon->Hide();
+				//	//shopGen();
+				//}
+			}
+			else {
+				gameLocal.Printf("Not in the buy zone. Go to Sgt. Morris!\n");
+			}
+			break;
+		}
 		case IMPULSE_17: {
  			if ( gameLocal.isClient || entityNumber == gameLocal.localClientNum ) {
  				gameLocal.mpGame.ToggleReady( );
@@ -8505,18 +8642,18 @@ void idPlayer::PerformImpulse( int impulse ) {
 			break;
 		}
 		case IMPULSE_19: {
-/*		
+		
 			// when we're not in single player, IMPULSE_19 is used for showScores
 			// otherwise it does IMPULSE_12 (PDA)
-			if ( !gameLocal.isMultiplayer ) {
-				if ( !objectiveSystemOpen ) {
-					if ( weapon ) {
+			if ( !gameLocal.isMultiplayer ) { // check if game mode is single player
+				if ( !objectiveSystemOpen ) { // condition to open objective
+					if ( weapon ) { // hide weapon UI
 						weapon->Hide ();
 					}
 				}
-				ToggleMap();
+				//ToggleMap();
 			}
-*/
+
 			break;
 		}
 		case IMPULSE_20: {

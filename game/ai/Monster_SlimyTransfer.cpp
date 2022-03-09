@@ -15,6 +15,7 @@ public:
 	void				Spawn							( void );
 	void				Save							( idSaveGame *savefile ) const;
 	void				Restore							( idRestoreGame *savefile );
+	void				StartWave						( void ); // used for zombie waves
 
 protected:
 
@@ -37,6 +38,7 @@ private:
 	// Frame commands
 	stateResult_t		State_Frame_StartVomit			( const stateParms_t& parms );
 	stateResult_t		State_Frame_StopVomit			( const stateParms_t& parms );
+	//void				Event_SetMoveSpeed(int speed);
 
 	CLASS_STATES_PROTOTYPE ( rvMonsterSlimyTransfer );
 };
@@ -58,15 +60,40 @@ void rvMonsterSlimyTransfer::InitSpawnArgsVariables ( void ) {
 	vomitAttackRate = SEC2MS ( spawnArgs.GetFloat ( "attack_vomit_rate", ".15" ) );
 }
 
+//void rvMonsterSlimyTransfer::Event_SetMoveSpeed(int speed) {
+//	switch (speed) {
+//	case AIMOVESPEED_DEFAULT:
+//		move.fl.noRun = false;
+//		move.fl.noWalk = false;
+//		break;
+//
+//	case AIMOVESPEED_RUN:
+//		move.fl.noRun = false;
+//		move.fl.noWalk = true;
+//		break;
+//
+//	case AIMOVESPEED_WALK:
+//		move.fl.noRun = true;
+//		move.fl.noWalk = false;
+//		break;
+//	}
+//}
+
 /*
 ================
 rvMonsterSlimyTransfer::Spawn
 ================
 */
+
+void rvMonsterSlimyTransfer::StartWave(void) {
+	gameLocal.Printf("new wave approaching\n");
+}
+
 void rvMonsterSlimyTransfer::Spawn ( void ) {
 	actionVomitAttack.Init ( spawnArgs, "action_vomitAttack", "Torso_VomitAttack", AIACTIONF_ATTACK );
 
 	InitSpawnArgsVariables();
+	//Event_SetMoveSpeed(1);
 }
 
 /*
@@ -111,8 +138,17 @@ rvMonsterSlimyTransfer::OnDeath
 ================
 */
 void rvMonsterSlimyTransfer::OnDeath ( void ) {
+	idPlayer* player = gameLocal.GetLocalPlayer();
+	gameLocal.Printf("starting points: %i\n", player->inventory.points);
+	
 	StopEffect ( "fx_vomit_muzzle" );
 	idAI::OnDeath ( );
+
+	gameLocal.Printf("slimy transfer killed\n");
+	// add user points
+	player->inventory.points += 100;
+	gameLocal.Printf("current points: %i\n", player->inventory.points);
+
 }
 
 

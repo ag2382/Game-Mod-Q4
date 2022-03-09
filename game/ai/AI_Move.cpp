@@ -19,6 +19,8 @@ further changes to the system possible.
 #include "AI_Util.h"
 #include "AAS_Find.h"
 
+int i = 0;
+
 /*
 ===============================================================================
 
@@ -99,7 +101,7 @@ void idMoveState::Spawn( idDict &spawnArgs ) {
 	fl.allowPrevAnimMove	= false;
 	fl.allowHiddenMove		= false;
 	fl.noRun				= spawnArgs.GetBool ( "forceWalk", "0" );
-	fl.noWalk				= spawnArgs.GetBool ( "forceRun", "0" );
+	fl.noWalk				= spawnArgs.GetBool ( "forceRun", "1" );
 	fl.noTurn				= spawnArgs.GetBool ( "noTurn", "0" );
 	fl.noGravity			= spawnArgs.GetBool ( "animate_z", "0" );
 	fl.noRangedInterrupt	= spawnArgs.GetBool ( "noRangedInterrupt", "0" );
@@ -109,10 +111,10 @@ void idMoveState::Spawn( idDict &spawnArgs ) {
 	fl.allowPushMovables	= spawnArgs.GetBool( "af_push_moveables", "0" );
 	fl.ignoreObstacles		= spawnArgs.GetBool( "ignore_obstacles", "0" );
 	fl.disabled				= spawnArgs.GetBool ( "noMove", "0" );
-	walkRange				= spawnArgs.GetFloat ( "walkRange", "100" );
+	walkRange				= spawnArgs.GetFloat ( "walkRange", "10000" );
 	walkTurn				= spawnArgs.GetFloat ( "walkTurn", "45" );
-	followRange				= spawnArgs.GetVec2 ( "followRange", "70 250" ); 
-	searchRange				= spawnArgs.GetVec2 ( "searchRange", "0 1024" ); 
+	followRange				= spawnArgs.GetVec2 ( "followRange", "0 10000" ); 
+	searchRange				= spawnArgs.GetVec2 ( "searchRange", "0 10000" ); 
 	attackPositionRange		= spawnArgs.GetFloat ( "attackPositionRange", "0" ); 
 	turnDelta				= spawnArgs.GetFloat ( "turnDelta", "10" );
 	blockTime				= 0;
@@ -714,7 +716,6 @@ float idAI::TravelDistance( const idVec3 &start, const idVec3 &end ) const {
 			gameRenderWorld->DebugLine( colorBlue, start, end, gameLocal.msec, false );
 			gameRenderWorld->DrawText( va( "%d", ( int )dist ), ( start + end ) * 0.5f, 0.1f, colorWhite, gameLocal.GetLocalPlayer()->viewAngles.ToMat3() );
 		}
-
 		return dist;
 	}
 
@@ -1021,13 +1022,15 @@ bool idAI::MoveToEnemy( void ) {
 	int			areaNum;
 	aasPath_t	path;
 	idVec3		pos;
+	//gameLocal.Printf("moving to enemy ~ %i\n", i++);
 
 	if ( !enemy.ent ) {
 		return false;
 	}
 
 //	pos = LastKnownPosition ( enemy.ent );
-	pos = enemy.ent->GetPhysics()->GetOrigin ( );
+	//pos = enemy.ent->GetPhysics()->GetOrigin ( );
+	pos = gameLocal.GetLocalPlayer()->GetPhysics()->GetOrigin();
 	
 	// If we are already moving to the entity and its position hasnt changed then we are done
 	if ( move.moveCommand == MOVE_TO_ENEMY && move.goalEntity == enemy.ent && move.goalEntityOrigin == pos ) {
@@ -1076,7 +1079,7 @@ bool idAI::MoveToEnemy( void ) {
 		move.toAreaNum	= areaNum;
 		return true;
 	}
-
+	i = 0;
 	return StartMove ( MOVE_TO_ENEMY, pos, areaNum, enemy.ent, NULL, 8.0f );
 }
 
@@ -1171,6 +1174,7 @@ bool idAI::MoveOutOfRange( idEntity *ent, float range, float minRange ) {
 		return false;
 	}
 
+	//gameLocal.Printf("monster is out of range to move to marine\n");
 	return StartMove ( MOVE_OUT_OF_RANGE, goal.origin, goal.areaNum, ent, NULL, 8.0f );
 }
 

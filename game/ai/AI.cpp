@@ -3667,6 +3667,7 @@ idAI::
 */
 
 void idAI::OnDeath( void ){
+
 	if( vehicleController.IsDriving() ){
 		usercmd_t				usercmd;
 
@@ -4491,6 +4492,7 @@ idAI::Speak
 ============
 */
 bool idAI::Speak( const char *lipsync, bool random ){
+	//gameLocal.Printf("Morris is speaking\n");
 	assert( idStr::Icmpn( lipsync, "lipsync_", 7 ) == 0 );
 	
 	if ( random ) {

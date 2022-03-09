@@ -928,6 +928,7 @@ public:
 	void					ScriptedStop					( void );
 
 	void					SetScript						( const char* scriptName, const char* funcName );
+	virtual void			OnDeath(void);
 
 private:
 
@@ -942,7 +943,6 @@ private:
 
 protected:
 
-	virtual void			OnDeath							( void );
 	virtual void			OnStateChange					( int channel );
 	virtual void			OnUpdatePlayback				( const rvDeclPlaybackData& pbd );
 	virtual void			OnEnemyChange					( idEntity* oldEnemy );

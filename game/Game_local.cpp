@@ -4811,7 +4811,7 @@ bool idGameLocal::SpawnEntityDef( const idDict &args, idEntity **ent, bool setDe
 	const char  *name;
 
 	TIME_THIS_SCOPE( __FUNCLINE__);
-	
+
 	if ( ent ) {
 		*ent = NULL;
 	}
@@ -4847,6 +4847,7 @@ bool idGameLocal::SpawnEntityDef( const idDict &args, idEntity **ent, bool setDe
 // RAVEN BEGIN
 // rjohnson: entity usage stats
 	if ( g_keepEntityStats.GetBool() ) {
+		gameLocal.Printf("boolean for entity obtained\n");
 		if ( idStr::Icmp( classname, "func_spawner" ) == 0 || 
 			 idStr::Icmp( classname, "func_spawner_enemy" ) == 0 ) {
 			// special case for spawners
@@ -7000,6 +7001,7 @@ prepare for a sequence of initial player spawns
 */
 void idGameLocal::InitializeSpawns( void ) {
 	idEntity* spot = NULL;
+	gameLocal.Printf("spawn handling is here\n");
 
 	// initialize the spawns for clients as well, need them for free fly demo replays
 	if ( !isMultiplayer ) {

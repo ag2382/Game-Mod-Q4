@@ -207,6 +207,8 @@ public:
 	int						clip[ MAX_WEAPONS ];
 	int						powerupEndTime[ POWERUP_MAX ];
 	int						weaponMods[ MAX_WEAPONS ];
+	int						points;				// in-game currency
+	void					AddPoints( idPlayer* player, int points );
 
  	// multiplayer
  	int						ammoPredictTime;
@@ -340,6 +342,8 @@ public:
 
  	idUserInterface *		hud;				// Common hud
 	idUserInterface *		mphud;				// hud overlay containing MP elements
+	idUserInterface *		buyHud;			// buy menu exclusively for player
+	void					getBuyMenu( void );
 	
 	idUserInterface *		objectiveSystem;
 	idUserInterface *		cinematicHud;
@@ -347,6 +351,7 @@ public:
 	bool					objectiveButtonReleased;
 	bool					disableHud;
 	bool					showNewObjectives;
+	bool					buyHudOpen;
 
 	int						lastDmgTime;
 	int						deathClearContentsTime;
@@ -624,6 +629,7 @@ public:
 	void					Spectate( bool spectate, bool force = false );
  	void					ToggleObjectives ( void );
  	void					ToggleScoreboard( void );
+	void					ToggleShop (void);
 	void					RouteGuiMouse( idUserInterface *gui );
  	void					UpdateHud( void );
 	idUserInterface*		GetHud();
@@ -923,6 +929,8 @@ private:
 
 	idUserInterface *		overlayHud;			// a temporary hud overlay
 	int						overlayHudTime;
+	void					shopGen( void );
+	bool					readyToBuy;
 	
 	// full screen guis track mouse movements directly
 	int						oldMouseX;

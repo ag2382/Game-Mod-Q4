@@ -13,7 +13,6 @@ merge conflicts and to make further changes to the system possible.
 #ifndef __AI_MOVE_H__
 #define __AI_MOVE_H__
 
-
 typedef idEntityPtr<idEntity>			entityPointer_t;
 
 #define MAX_PATH_LEN	48

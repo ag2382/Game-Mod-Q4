@@ -26,7 +26,6 @@
 // RAVEN END
 
 #ifdef _WIN32
-#include "TypeInfo.h"
 #else
 #include "NoGameTypeInfo.h"
 #endif
@@ -171,7 +170,7 @@ void Cmd_ListSpawnArgs_f( const idCmdArgs &args ) {
 
 	for ( i = 0; i < ent->spawnArgs.GetNumKeyVals(); i++ ) {
 		const idKeyValue *kv = ent->spawnArgs.GetKeyVal( i );
-		gameLocal.Printf( "\"%s\"  "S_COLOR_WHITE"\"%s\"\n", kv->GetKey().c_str(), kv->GetValue().c_str() );
+		gameLocal.Printf( "\"%s\"  " S_COLOR_WHITE "\"%s\"\n", kv->GetKey().c_str(), kv->GetValue().c_str() );
 	}
 }
 
@@ -424,6 +423,7 @@ void GiveStuffToPlayer( idPlayer* player, const char* name, const char* value )
 	}
 
 	if ( give_all || ( idStr::Cmpn( name, "weapon", 6 ) == 0 ) ) {
+		gameLocal.Printf("all weapons given (1)\n");
 		if ( gameLocal.world->spawnArgs.GetBool( "no_Weapons" ) ) {
 			gameLocal.world->spawnArgs.SetBool( "no_Weapons", false );
 			for( i = 0; i < gameLocal.numClients; i++ ) {
@@ -450,7 +450,9 @@ void GiveStuffToPlayer( idPlayer* player, const char* name, const char* value )
 	}
 
 	if ( give_all || idStr::Icmp( name, "weapons" ) == 0 ) {
+		gameLocal.Printf("all weapons given (2)\n");
 		player->inventory.weapons = BIT( MAX_WEAPONS ) - 1;
+		gameLocal.Printf("max weapons: %i\n", BIT(MAX_WEAPONS));
 		player->CacheWeapons();
 
 		if ( !give_all ) {
@@ -1068,9 +1070,11 @@ void Cmd_Teleport_f( const idCmdArgs &args ) {
 
 	angles.Zero();
 	angles.yaw = ent->GetPhysics()->GetAxis()[ 0 ].ToYaw();
+	gameLocal.Printf("yaw: %f\n", angles.yaw);
 	origin = ent->GetPhysics()->GetOrigin();
 
 	player->Teleport( origin, angles, ent );
+	gameLocal.Printf("location of entity: %f, %f, %f\n", origin.x, origin.y, origin.z, angles.yaw);
 }
 
 /*
@@ -1105,6 +1109,7 @@ void Cmd_Trigger_f( const idCmdArgs &args ) {
 	ent->TriggerGuis();
 }
 
+
 /*
 ===================
 Cmd_Spawn_f
@@ -1124,6 +1129,11 @@ void Cmd_Spawn_f( const idCmdArgs &args ) {
 		return;
 	}
 
+	// check which entity is spawned
+	for (i = 0; i < args.Argc(); i++) {
+		gameLocal.Printf("arg %i, '%s'\n", i, args.Argv(i));
+	}
+
 	if ( args.Argc() & 1 ) {	// must always have an even number of arguments
 		gameLocal.Printf( "usage: spawn classname [key/value pairs]\n" );
 		return;
@@ -1133,6 +1143,7 @@ void Cmd_Spawn_f( const idCmdArgs &args ) {
 
 	value = args.Argv( 1 );
 	dict.Set( "classname", value );
+	gameLocal.Printf("classname set: '%s'\n", value);
 	dict.Set( "angle", va( "%f", yaw + 180 ) );
 
 	org = player->GetPhysics()->GetOrigin() + idAngles( 0, yaw, 0 ).ToForward() * 80 + idVec3( 0, 0, 1 );
@@ -1155,6 +1166,68 @@ void Cmd_Spawn_f( const idCmdArgs &args ) {
 		gameLocal.Printf("spawned entity '%s'\n", newEnt->name.c_str());
 	}
 // RAVEN END
+#endif // !_MPBETA
+}
+
+/*
+===================
+Cmd_Spawn_Slimy_Transfer ~ Like spawn command, except it only spawns the slimy transfer enemy
+===================
+*/
+void Cmd_Spawn_Slimy_Transfer(const idCmdArgs& args) {
+#ifndef _MPBETA)
+	// code to spawn enemy
+	const char* key, *value;
+	int			i;
+	float		yaw;
+	idVec3		org;
+	idPlayer*	player;
+	idDict		dict;
+	idAngles	angles;		// represents the amount of zombies per wave
+
+	player = gameLocal.GetLocalPlayer();
+	if (!player || !gameLocal.CheatsOk(false)) {
+		return;
+	}
+
+	yaw = player->viewAngles.yaw;
+	gameLocal.Printf("yaw value: %i\n", yaw);
+	value = "monster_slimy_transfer";
+	dict.Set("classname", value);
+	dict.Set("angle", va("%f", yaw + 180));
+
+	// how location of spawn is determined
+	// origin of player * rotational angles * 
+	org = player->GetPhysics()->GetOrigin() + idAngles(0, yaw, 0).ToForward() * 80 + idVec3(0, 0, 1);
+
+	gameLocal.Printf("angle vals ~ 'pitch: %f', 'yaw: %f', 'roll: %f'\n", angles.pitch, angles.yaw, angles.roll);
+	gameLocal.Printf("origin: %f, %f, %f\n", org.x, org.y, org.z);
+
+	// new spot for zombies to spawn from
+	org.x = 9169.727539;
+	org.y = -6969.945312;
+	org.z = 2.250040;
+	// change its default position
+	dict.Set("origin", org.ToString());
+
+	for (i = 2; i < args.Argc() - 1; i += 2) {
+
+		key = args.Argv(i);
+		value = args.Argv(i + 1);
+
+		dict.Set(key, value);
+	}
+
+	// RAVEN BEGIN
+	// kfuller: want to know the name of the entity I spawned
+	idEntity* newEnt = NULL;
+	gameLocal.SpawnEntityDef(dict, &newEnt);
+
+	if (newEnt) {
+		gameLocal.Printf("spawned entity '%s'\n", newEnt->name.c_str());
+	}
+
+	// RAVEN END
 #endif // !_MPBETA
 }
 
@@ -2921,9 +2994,24 @@ void Cmd_AddIcon_f( const idCmdArgs& args ) {
 // RAVEN END
 
 // RITUAL BEGIN
-// squirrel: Mode-agnostic buymenus
+//void Cmd_ToggleBuyMenu_sp( void ) {
+//	idPlayer* player = gameLocal.GetLocalPlayer();
+//	gameLocal.Printf("command to bring up the buy menu\n");
+//	 if local player is found
+//	if ( player && !gameLocal.isMultiplayer ) {
+//		 open buy menu
+//		idUserInterface *buyMenu = uiManager->FindGui("guis/buymenu.gui", true, false, true);
+//		player->buyMenu;
+//		player->GetLocalBuyMenu();
+//		gameLocal.Printf("buy menu has successfully opened\n");
+//	}
+//}
+
+// squirrel: Mode-agnostics
 void Cmd_ToggleBuyMenu_f( const idCmdArgs& args ) {
+	// get player from user's end
 	idPlayer* player = gameLocal.GetLocalPlayer();
+	// check for player and verify if user can buy stuff
 	if ( player && player->CanBuy() )
 	{
 		gameLocal.mpGame.OpenLocalBuyMenu();
@@ -3038,6 +3126,21 @@ void Cmd_ClientOverflowReliable_f( const idCmdArgs& args ) {
 }
 #endif
 
+void PickUpInfo(const idCmdArgs& args) {
+	gameLocal.Printf("This button will be used to manually pick up a weapon\n");
+}
+
+// method to upgrade weapon 
+void UpgradeWeapon(const idCmdArgs& args) {
+	gameLocal.Printf("This button will be used to upgrade your weapon\n");
+	// find weapon currently in possession
+}
+
+//void ShowPoints(const idCmdArgs& args) {
+//	idPlayer* player = gameLocal.GetLocalPlayer();
+//	gameLocal.Printf("This user has %i points\n", player->inventory.points);
+//}
+
 /*
 =================
 idGameLocal::InitConsoleCommands
@@ -3061,11 +3164,14 @@ void idGameLocal::InitConsoleCommands( void ) {
 	cmdSystem->AddCommand( "listActiveEntities",	Cmd_ActiveEntityList_f,		CMD_FL_GAME|CMD_FL_CHEAT,	"lists active game entities" );
 	cmdSystem->AddCommand( "listMonsters",			idAI::List_f,				CMD_FL_GAME|CMD_FL_CHEAT,	"lists monsters" );
 	cmdSystem->AddCommand( "listSpawnArgs",			Cmd_ListSpawnArgs_f,		CMD_FL_GAME|CMD_FL_CHEAT,	"list the spawn args of an entity", idGameLocal::ArgCompletion_EntityName );
+	//cmdSystem->AddCommand( "listpoints",			ShowPoints,					CMD_FL_GAME|CMD_FL_CHEAT,	"lists the current amount of points the user has");
 	cmdSystem->AddCommand( "say",					Cmd_Say_f,					CMD_FL_GAME,				"text chat" );
 	cmdSystem->AddCommand( "sayTeam",				Cmd_SayTeam_f,				CMD_FL_GAME,				"team text chat" );
 	cmdSystem->AddCommand( "addChatLine",			Cmd_AddChatLine_f,			CMD_FL_GAME,				"internal use - core to game chat lines" );
 	cmdSystem->AddCommand( "gameKick",				Cmd_Kick_f,					CMD_FL_GAME,				"same as kick, but recognizes player names" );
+	cmdSystem->AddCommand( "pickup",				PickUpInfo,					CMD_FL_GAME,				"pick up weapon from any surface");
 	cmdSystem->AddCommand( "give",					Cmd_Give_f,					CMD_FL_GAME|CMD_FL_CHEAT,	"gives one or more items" );
+	cmdSystem->AddCommand( "upgrade",				UpgradeWeapon,				CMD_FL_GAME,				"upgrades current item / weapon");
 	cmdSystem->AddCommand( "centerview",			Cmd_CenterView_f,			CMD_FL_GAME,				"centers the view" );
 	cmdSystem->AddCommand( "god",					Cmd_God_f,					CMD_FL_GAME|CMD_FL_CHEAT,	"enables god mode" );
 	cmdSystem->AddCommand( "undying",				Cmd_Undying_f,				CMD_FL_GAME|CMD_FL_CHEAT,	"enables undying mode (take damage down to 1 health, but do not die)" );
@@ -3078,6 +3184,7 @@ void idGameLocal::InitConsoleCommands( void ) {
 	cmdSystem->AddCommand( "teleport",				Cmd_Teleport_f,				CMD_FL_GAME|CMD_FL_CHEAT,	"teleports the player to an entity location", idGameLocal::ArgCompletion_EntityName );
 	cmdSystem->AddCommand( "trigger",				Cmd_Trigger_f,				CMD_FL_GAME|CMD_FL_CHEAT,	"triggers an entity", idGameLocal::ArgCompletion_EntityName );
 	cmdSystem->AddCommand( "spawn",					Cmd_Spawn_f,				CMD_FL_GAME|CMD_FL_CHEAT,	"spawns a game entity", idCmdSystem::ArgCompletion_Decl<DECL_ENTITYDEF> );
+	cmdSystem->AddCommand( "spawn_slimy_trans",		Cmd_Spawn_Slimy_Transfer,	CMD_FL_GAME|CMD_FL_CHEAT,	"spawns a slimy transfer", idCmdSystem::ArgCompletion_Decl<DECL_ENTITYDEF>);
 	cmdSystem->AddCommand( "damage",				Cmd_Damage_f,				CMD_FL_GAME|CMD_FL_CHEAT,	"apply damage to an entity", idGameLocal::ArgCompletion_EntityName );
 	cmdSystem->AddCommand( "remove",				Cmd_Remove_f,				CMD_FL_GAME|CMD_FL_CHEAT,	"removes an entity", idGameLocal::ArgCompletion_EntityName );
 	cmdSystem->AddCommand( "killMonsters",			Cmd_KillMonsters_f,			CMD_FL_GAME|CMD_FL_CHEAT,	"removes all monsters" );
@@ -3156,7 +3263,7 @@ void idGameLocal::InitConsoleCommands( void ) {
 	cmdSystem->AddCommand( "exportmodels",			Cmd_ExportModels_f,			CMD_FL_GAME|CMD_FL_CHEAT,	"exports models", ArgCompletion_DefFile );
 
 	// multiplayer client commands ( replaces old impulses stuff )
-	//cmdSystem->AddCommand( "clientDropWeapon",		idMultiplayerGame::DropWeapon_f, CMD_FL_GAME,			"drop current weapon" );
+	cmdSystem->AddCommand( "clientDropWeapon",		idMultiplayerGame::DropWeapon_f, CMD_FL_GAME,			"drop current weapon" );
 	cmdSystem->AddCommand( "clientMessageMode",		idMultiplayerGame::MessageMode_f, CMD_FL_GAME,			"ingame gui message mode" );
 	// FIXME: implement
 	cmdSystem->AddCommand( "clientVote",			idMultiplayerGame::Vote_f,	CMD_FL_GAME,				"cast your vote: clientVote yes | no" );
@@ -3230,6 +3337,7 @@ void idGameLocal::InitConsoleCommands( void ) {
 // RITUAL START
 // squirrel: Mode-agnostic buymenus
 	cmdSystem->AddCommand( "buyMenu",				Cmd_ToggleBuyMenu_f,		CMD_FL_GAME,				"Toggle buy menu (if in a buy zone and the game type supports it)" );
+	//cmdSystem->AddCommand( "buyMenu_sp",			Cmd_ToggleBuyMenu_sp,		CMD_FL_GAME,				"Toggle buy menu in single player");
 	cmdSystem->AddCommand( "buy",					Cmd_BuyItem_f,				CMD_FL_GAME,				"Buy an item (if in a buy zone and the game type supports it)" );
 // RITUAL END
 
